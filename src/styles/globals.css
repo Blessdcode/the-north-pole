@@ -1,0 +1,106 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-display: 'Cormorant Garamond', 'Times New Roman', serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --color-night: #03050b;
+  --color-frost: #dfe8ff;
+  --color-ember: #f3d9a4;
+  --color-glow: #ffb867;
+}
+
+@layer base {
+  html,
+  body {
+    background: var(--color-night);
+    color: var(--color-frost);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    overscroll-behavior: none;
+  }
+  html.is-locked,
+  html.is-locked body {
+    overflow: hidden;
+  }
+  /* The page still scrolls (it drives the story); only the native bar is hidden.
+     The thread of light on the right edge is the progress indicator. */
+  html,
+  body {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    display: none;
+  }
+  ::selection {
+    background: rgb(243 217 164 / 0.3);
+  }
+  :focus-visible {
+    outline: 1px solid var(--color-ember);
+    outline-offset: 4px;
+  }
+}
+
+/* Lenis recommended base styles */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis:not(.lenis-autoToggle).lenis-stopped {
+  overflow: clip;
+}
+
+@utility text-shadow-glow {
+  text-shadow:
+    0 0 24px rgb(0 0 0 / 0.65),
+    0 0 2px rgb(0 0 0 / 0.5);
+}
+
+@keyframes hint-drift {
+  0%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  50% {
+    transform: translateY(6px);
+    opacity: 1;
+  }
+}
+@keyframes slow-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes ring-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+.animate-hint {
+  animation: hint-drift 2.6s ease-in-out infinite;
+}
+.animate-slow-pulse {
+  animation: slow-pulse 2.4s ease-in-out infinite;
+}
+.animate-ring {
+  animation: ring-pulse 2.2s cubic-bezier(0.2, 0.6, 0.3, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-hint,
+  .animate-slow-pulse,
+  .animate-ring {
+    animation: none;
+  }
+}
