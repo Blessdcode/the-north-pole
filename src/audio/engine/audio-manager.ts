@@ -7,11 +7,14 @@
  *              └──────▶ reverb (shared send) ─▶ master
  *
  * Everything here is procedural so the experience has a complete, working
- * soundscape today. The final production score and recorded ambiences listed
+ * soundscape today. The score is a set of public-domain carols (carols.ts),
+ * one per destination, performed live by the synth voices below. The final production score and recorded ambiences listed
  * in ASSETS.md can replace each layer without changing this interface.
  *
  * Audio only starts after a user gesture (`init` is called from the Start button).
  */
+
+import { CAROLS, carolFor, type Carol, type CarolChord, type CarolNote, type LeadVoice } from './carols'
 
 type Bus = 'music' | 'ambience' | 'sfx'
 
@@ -20,20 +23,8 @@ const BUS_LEVELS: Record<Bus, number> = { music: 0.55, ambience: 0.6, sfx: 0.85 
 // Equal-tempered helper: MIDI note → Hz.
 const hz = (midi: number) => 440 * Math.pow(2, (midi - 69) / 12)
 
-// Chord voicings (MIDI). Mysterious minor colours → warm major on the reveal.
-const MYSTERIOUS = [
-  [38, 50, 57, 64, 65], // Dm(add9)
-  [34, 46, 53, 57, 62], // Bbmaj7
-  [31, 43, 50, 53, 58], // Gm9-ish
-  [33, 45, 52, 55, 62], // A7sus
-]
-const MAGICAL = [
-  [38, 50, 57, 62, 66, 69], // Dmaj9
-  [35, 47, 54, 57, 62, 66], // Bm11
-  [31, 43, 50, 55, 59, 66], // Gmaj9
-  [33, 45, 52, 57, 61, 64], // A(add9)
-]
-const SPARKLE_SCALE = [74, 76, 78, 81, 83, 86, 88, 90, 93] // D major pentatonic-ish, high
+/** How long one pass of a carol may lag before it restarts instead of catching up. */
+const CAROL_RESYNC = 1
 
 export class AudioManager {
   private ctx: AudioContext | null = null
@@ -45,15 +36,15 @@ export class AudioManager {
   private padFilter!: BiquadFilterNode
   private drone: { gain: GainNode; oscs: OscillatorNode[] } | null = null
   private schedulerId = 0
-  private nextChordTime = 0
-  private chordIndex = 0
   private nextSparkle = 0
   private progress = 0
   private enabled = true
   private chapter = 'arrival'
-  private nextPulse = 0
-  private pulseStep = 0
-  private currentChord: number[] = MAGICAL[0]
+  /** The carol now playing: `start` is the audio time of beat 0 of the current pass. */
+  private carol: { def: Carol; start: number; mi: number; ci: number; ki: number; bi: number } | null = null
+  private carolEntry = 0
+  /** Bass + pad of the chord now sounding (one-shots such as the flight's timpani follow it). */
+  private currentChord: number[] = [38, 57, 62, 66]
   private trainRumble: { gain: GainNode; filter: BiquadFilterNode } | null = null
   private machineHum: GainNode | null = null
   private interior = 0
@@ -125,7 +116,7 @@ export class AudioManager {
     if (ctx.state === 'suspended') await ctx.resume()
     this.setEnabled(this.enabled)
 
-    this.nextChordTime = ctx.currentTime + 2.5
+    this.carolEntry = ctx.currentTime + 2.5
     this.nextSparkle = ctx.currentTime + 6
     this.schedulerId = window.setInterval(() => this.schedule(), 120)
     document.addEventListener('visibilitychange', this.onVisibility)
@@ -318,12 +309,13 @@ export class AudioManager {
   }
 
   /** Choir-like vowel pad: sawtooth voices through two formant filters. */
-  private choirChord(t: number, notes: number[], length: number, level: number) {
+  private choirChord(t: number, notes: number[], length: number, level: number, attack = 1.6) {
     const ctx = this.ctx!
+    const release = Math.min(2, length * 0.4)
     const env = ctx.createGain()
     env.gain.setValueAtTime(0, t)
-    env.gain.linearRampToValueAtTime(level, t + 1.6)
-    env.gain.setValueAtTime(level, t + length - 2)
+    env.gain.linearRampToValueAtTime(level, t + attack)
+    env.gain.setValueAtTime(level, t + Math.max(attack + 0.01, length - release))
     env.gain.linearRampToValueAtTime(0, t + length)
     const f1 = ctx.createBiquadFilter()
     f1.type = 'bandpass'
@@ -613,7 +605,6 @@ export class AudioManager {
   setChapter(id: string) {
     if (id === this.chapter) return
     this.chapter = id
-    if (this.ctx) this.nextPulse = this.ctx.currentTime + 0.4
   }
 
   /** Continuous rumble of wheels and motion, following speed and distance. */
@@ -786,124 +777,288 @@ export class AudioManager {
     if (!ctx || ctx.state !== 'running') return
     const now = ctx.currentTime
     const lookahead = now + 0.5
-    // After the context was suspended (hidden tab, mute), skip the backlog instead
-    // of starting dozens of overlapping chords at once.
-    if (this.nextChordTime < now - 1) this.nextChordTime = now + 0.3
+    // After the context was suspended (hidden tab, mute), skip the backlog.
     if (this.nextSparkle < now - 1) this.nextSparkle = now + 1
 
-    if (this.nextChordTime < lookahead) {
-      const magical = this.progress > 0.55
-      const set = magical ? MAGICAL : MYSTERIOUS
-      const chord = set[this.chordIndex % set.length]
-      const dur = magical ? 7.5 : 9
-      const climax = this.chapter === 'flight' ? this.flightIntensity : 0
-      this.padChord(this.nextChordTime, chord, dur + 3.5, (magical ? 0.05 : 0.04) * (1 + climax * 0.7))
-      if (climax > 0.2) this.choirChord(this.nextChordTime, chord.slice(-4), dur + 2, 0.035 * climax)
-      this.currentChord = chord
-      this.nextChordTime += dur
-      this.chordIndex++
-    }
+    this.scheduleCarol(now, lookahead)
 
-    // Celesta-like sparkles, denser as the village comes into view.
+    // Celesta glints drawn from the chord now sounding, denser as the village comes into view.
     if (this.nextSparkle < lookahead) {
-      const density = this.chapter === 'morning' ? 0.08 : 0.12 + Math.max(0, this.progress - 0.35) * 1.4
-      const note = SPARKLE_SCALE[Math.floor(Math.random() * SPARKLE_SCALE.length)]
-      const vel = 0.04 + Math.random() * 0.05 + this.progress * 0.03
-      this.sparkle(this.nextSparkle, note, vel, this.buses.music)
-      // Occasional answering note a third/fifth up.
-      if (Math.random() < 0.3) this.sparkle(this.nextSparkle + 0.18, note + (Math.random() < 0.5 ? 4 : 7), vel * 0.6, this.buses.music)
+      const density = this.chapter === 'morning' ? 0.05 : 0.06 + Math.max(0, this.progress - 0.35) * 0.5
+      const pad = this.currentChord.slice(1)
+      const note = pad[Math.floor(Math.random() * pad.length)] + 24
+      this.sparkle(this.nextSparkle, note, 0.025 + Math.random() * 0.03, this.buses.music)
       this.nextSparkle += (1 / density) * (0.5 + Math.random())
-    }
-
-    // Christmas Morning: an original music-box lullaby, slow and far apart.
-    if (this.chapter === 'morning') {
-      if (this.nextPulse < now - 1) this.nextPulse = now + 0.4
-      const tune = [74, 78, 81, 78, 76, 74, 71, 74, 76, 78, 76, 74, 69, -1, 71, 74]
-      while (this.nextPulse < lookahead) {
-        const n = tune[this.pulseStep % tune.length]
-        if (n > 0) this.sparkle(this.nextPulse, n, 0.045, this.buses.music)
-        if (this.pulseStep % 8 === 0) this.pluck(this.nextPulse, this.currentChord[0] + 12, 0.025)
-        this.nextPulse += 60 / 66
-        this.pulseStep++
-      }
-    }
-
-    // The flight: driving strings and timpani, scaled by the climax curve.
-    if (this.chapter === 'flight') {
-      if (this.nextPulse < now - 1) this.nextPulse = now + 0.1
-      const step = 60 / 132 / 2
-      const pattern = [0, 2, 3, 2, 4, 2, 3, 5]
-      while (this.nextPulse < lookahead) {
-        const k = this.pulseStep % 8
-        const chord = this.currentChord
-        const vol = 0.025 + this.flightIntensity * 0.05
-        this.pluck(this.nextPulse, chord[Math.min(pattern[k] + 1, chord.length - 1)] + 12, vol * (k % 2 === 0 ? 1 : 0.7))
-        if (k === 0 || (k === 4 && this.flightIntensity > 0.5)) this.timpani(this.nextPulse, chord[0] - 12, 0.08 + this.flightIntensity * 0.16)
-        this.nextPulse += step
-        this.pulseStep++
-      }
-      if (this.flightIntensity > 0.4 && this.nextJingle < lookahead) {
-        if (this.nextJingle < now - 1) this.nextJingle = now + 0.5
-        this.jingle(Math.max(now, this.nextJingle), 1.2, 0.05 * this.flightIntensity)
-        this.nextJingle += 2.5 + Math.random() * 2
-      }
-    }
-
-    // Anticipation before departure: soft timpani heartbeats under the strings.
-    if (this.chapter === 'stables') {
-      if (this.nextPulse < now - 1) this.nextPulse = now + 0.1
-      const beat = 60 / 72
-      while (this.nextPulse < lookahead) {
-        const strong = this.pulseStep % 2 === 0
-        this.timpani(this.nextPulse, this.currentChord[0] - 12, strong ? 0.22 : 0.12)
-        this.nextPulse += strong ? beat * 0.42 : beat * 1.58
-        this.pulseStep++
-      }
     }
 
     // Celebration after midnight: sleigh-bell flourishes now and then.
     if (this.celebrate && this.chapter === 'clock' && this.nextJingle < lookahead) {
       if (this.nextJingle < now - 1) this.nextJingle = now + 0.5
-      this.jingle(Math.max(now, this.nextJingle), 0.9 + Math.random() * 0.8, 0.06)
+      this.jingle(Math.max(now, this.nextJingle), 0.9 + Math.random() * 0.8, 0.05)
       this.nextJingle += 5 + Math.random() * 6
     }
 
-    // Playful workshop: bouncing bass on the beat, music-box arpeggios, clanks.
-    if (this.chapter === 'workshop') {
-      if (this.nextPulse < now - 1) this.nextPulse = now + 0.1
-      const step = 60 / 112 / 2
-      while (this.nextPulse < lookahead) {
-        const chord = this.currentChord
-        const k = this.pulseStep % 8
-        if (k % 2 === 0) this.pluck(this.nextPulse, chord[0] + (k === 4 ? 7 : 0), 0.06)
-        const arp = [3, 4, 5, 4, 3, 5, 4, 5][k]
-        this.sparkle(this.nextPulse, chord[Math.min(arp, chord.length - 1)] + 12, 0.028 + (k === 0 ? 0.02 : 0), this.buses.music)
-        this.nextPulse += step
-        this.pulseStep++
-      }
-      if (this.interior > 0 && this.nextClank < lookahead) {
-        if (this.nextClank < now - 1) this.nextClank = now + 0.2
-        this.clank(Math.max(now, this.nextClank))
-        this.nextClank += 0.4 + Math.random() * 1.6
-      }
+    // Sleigh bells over the flight's climax.
+    if (this.chapter === 'flight' && this.flightIntensity > 0.4 && this.nextJingle < lookahead) {
+      if (this.nextJingle < now - 1) this.nextJingle = now + 0.5
+      this.jingle(Math.max(now, this.nextJingle), 1.2, 0.045 * this.flightIntensity)
+      this.nextJingle += 2.5 + Math.random() * 2
     }
 
-    // Rhythmic train sequence: a pizzicato ostinato over the current chord.
-    if (this.chapter === 'express') {
-      if (this.nextPulse < now - 1) this.nextPulse = now + 0.1
-      const step = 60 / 132 / 2
-      const pattern = [2, 4, 3, 4, 5, 4, 3, 4]
-      while (this.nextPulse < lookahead) {
-        const i = pattern[this.pulseStep % pattern.length]
-        const chord = this.currentChord
-        const note = chord[Math.min(i, chord.length - 1)] + (this.pulseStep % 16 < 8 ? 0 : 12)
-        const accent = this.pulseStep % 4 === 0 ? 1 : 0.6
-        this.pluck(this.nextPulse, note, 0.05 * accent)
-        if (this.pulseStep % 8 === 0) this.pluck(this.nextPulse, chord[0] + 12, 0.07)
-        this.nextPulse += step
-        this.pulseStep++
-      }
+    // Workshop machinery: clanks under the music.
+    if (this.chapter === 'workshop' && this.interior > 0 && this.nextClank < lookahead) {
+      if (this.nextClank < now - 1) this.nextClank = now + 0.2
+      this.clank(Math.max(now, this.nextClank))
+      this.nextClank += 0.4 + Math.random() * 1.6
     }
+  }
+
+  // ─────────────────────────────── carols ───────────────────────────────
+
+  /** Plays the destination's carol, a lookahead window at a time, looping each pass. */
+  private scheduleCarol(now: number, until: number) {
+    if (now < this.carolEntry) return
+    const want = CAROLS[carolFor(this.chapter, this.celebrate)]
+    let c = this.carol
+    if (!c || c.def !== want) {
+      // A new destination: a short breath, then the new carol from its first beat.
+      c = this.carol = { def: want, start: now + 0.35, mi: 0, ci: 0, ki: 0, bi: 0 }
+      this.retuneDrone(want.tonic)
+    }
+    const def = c.def
+    const spb = 60 / def.bpm
+    if (c.start + c.bi * spb < now - CAROL_RESYNC) {
+      // Fell behind (hidden tab, suspended context): restart the pass rather than catch up.
+      Object.assign(c, { start: now + 0.3, mi: 0, ci: 0, ki: 0, bi: 0 })
+    }
+    const mix = this.carolMix()
+    const at = (beat: number) => c.start + beat * spb
+    for (;;) {
+      for (; c.ci < def.chords.length && at(def.chords[c.ci].beat) < until; c.ci++) {
+        this.carolChord(at(def.chords[c.ci].beat), def.chords[c.ci], spb, mix.accomp)
+      }
+      for (; c.mi < def.melody.length && at(def.melody[c.mi].beat) < until; c.mi++) {
+        this.carolNote(at(def.melody[c.mi].beat), def.melody[c.mi], spb, def.lead, def.level * mix.lead)
+      }
+      for (; c.ki < def.counter.length && at(def.counter[c.ki].beat) < until; c.ki++) {
+        const n = def.counter[c.ki]
+        this.pluck(at(n.beat), n.note, def.level * mix.lead * 0.55)
+        this.sparkle(at(n.beat), n.note + 12, def.level * mix.lead * 0.3, this.buses.music, 0.35)
+      }
+      for (; c.bi < def.length && at(c.bi) < until; c.bi++) {
+        const chord = chordAt(def, c.bi)
+        if (chord) this.carolBeat(at(c.bi), c.bi % def.beatsPerBar, chord, spb, mix.accomp)
+      }
+      const passEnd = at(def.length)
+      if (c.bi < def.length || passEnd >= until) break
+      Object.assign(c, { start: passEnd, mi: 0, ci: 0, ki: 0, bi: 0 })
+    }
+  }
+
+  /** How present the tune and its accompaniment are right now. */
+  private carolMix() {
+    if (this.chapter === 'arrival') {
+      // The opening: harmony alone out of the wind, the tune arriving with the reveal.
+      const p = this.progress
+      const x = Math.min(1, Math.max(0, (p - 0.2) / 0.35))
+      return { lead: x * x * (3 - 2 * x), accomp: 0.45 + p * 0.55 }
+    }
+    if (this.chapter === 'flight') {
+      const i = this.flightIntensity
+      return { lead: 0.55 + i * 0.6, accomp: 0.6 + i * 0.6 }
+    }
+    if (this.chapter === 'clock' && !this.celebrate) return { lead: 0.85, accomp: 0.8 }
+    return { lead: 1, accomp: 1 }
+  }
+
+  private carolChord(t: number, chord: CarolChord, spb: number, level: number) {
+    this.currentChord = [chord.bass, ...chord.pad]
+    const dur = chord.beats * spb
+    this.carolPad(t, chord, dur, 0.032 * level)
+    if (this.chapter === 'flight' && this.flightIntensity > 0.25 && dur >= 1.2) {
+      this.choirChord(t, chord.pad.map((n) => n + 12), dur + 0.4, 0.03 * this.flightIntensity, Math.min(0.5, dur * 0.3))
+    }
+  }
+
+  private carolNote(t: number, n: CarolNote, spb: number, voice: LeadVoice, vel: number) {
+    if (vel < 0.002) return
+    const dur = n.beats * spb
+    switch (voice) {
+      case 'flute':
+      case 'strings':
+      case 'brass':
+        this.lead(t, n.note, dur, vel, voice)
+        break
+      case 'bells':
+        this.sparkle(t, n.note + 12, vel, this.buses.music, 0)
+        this.pluck(t, n.note, vel * 0.6)
+        break
+      case 'musicbox':
+        this.sparkle(t, n.note + 12, vel, this.buses.music, 0)
+        break
+      case 'celesta':
+        this.sparkle(t, n.note, vel, this.buses.music, -0.2)
+        break
+    }
+  }
+
+  /** The accompaniment's pulse, one beat at a time, in the carol's style. */
+  private carolBeat(t: number, k: number, chord: CarolChord, spb: number, level: number) {
+    const { bass, pad } = chord
+    const top = pad[pad.length - 1]
+    switch (this.carol!.def.style) {
+      case 'waltz':
+        if (k === 0) this.pluck(t, bass + 12, 0.045 * level)
+        else this.pluck(t, pad[k % pad.length], 0.016 * level)
+        break
+      case 'oompah':
+        if (k % 2 === 0) this.pluck(t, bass + 12 + (k === 2 ? 7 : 0), 0.06 * level)
+        else {
+          pad.forEach((n) => this.pluck(t, n, 0.022 * level))
+          this.jingle(t, 0.12, 0.02 * level)
+        }
+        break
+      case 'bounce':
+        if (k % 2 === 0) this.pluck(t, bass + 12 + (k === 2 ? 7 : 0), 0.06 * level)
+        this.sparkle(t, pad[k % pad.length] + 12, 0.02 * level, this.buses.music)
+        this.sparkle(t + spb / 2, pad[(k + 2) % pad.length] + 12, 0.016 * level, this.buses.music)
+        break
+      case 'bells':
+        if (k === 0) this.pluck(t, bass + 12, 0.05 * level)
+        break
+      case 'ring':
+        if (k % 2 === 0) this.pluck(t, bass + 12, 0.05 * level)
+        if (k === 0) this.sparkle(t, top + 12, 0.028 * level, this.buses.music)
+        break
+      case 'heartbeat':
+        // Anticipation before departure: a low timpani heartbeat in the stalls.
+        if (k === 0) {
+          this.timpani(t, bass - 12, 0.2 * level)
+          this.timpani(t + spb * 0.42, bass - 12, 0.11 * level)
+          this.pluck(t, bass + 12, 0.035 * level)
+        }
+        break
+      case 'march': {
+        const i = this.flightIntensity
+        if (k === 0 || (k === 2 && i > 0.5)) this.timpani(t, bass - 12, (0.08 + i * 0.16) * level)
+        const vol = (0.018 + i * 0.035) * level
+        this.pluck(t, pad[k % pad.length] + 12, vol)
+        this.pluck(t + spb / 2, pad[(k + 1) % pad.length] + 12, vol * 0.7)
+        break
+      }
+      case 'lullaby':
+        if (k === 0) this.pluck(t, bass + 12, 0.025 * level)
+        else this.sparkle(t, pad[(k - 1) % pad.length] + 12, 0.018 * level, this.buses.music)
+        break
+    }
+  }
+
+  /** A short-lived chord for the carol's harmony (the long pads swell too slowly for it). */
+  private carolPad(t: number, chord: CarolChord, length: number, level: number) {
+    const ctx = this.ctx!
+    const attack = Math.min(0.25, length * 0.3)
+    const release = 0.6
+    const env = ctx.createGain()
+    env.gain.setValueAtTime(0, t)
+    env.gain.linearRampToValueAtTime(level, t + attack)
+    env.gain.setValueAtTime(level, t + Math.max(attack + 0.01, length - 0.05))
+    env.gain.linearRampToValueAtTime(0, t + length + release)
+    env.connect(this.padFilter)
+    ;[chord.bass + 12, ...chord.pad].forEach((n, i) => {
+      for (const detune of [-7, 6]) {
+        const o = ctx.createOscillator()
+        o.type = i === 0 ? 'triangle' : 'sawtooth'
+        o.frequency.value = hz(n)
+        o.detune.value = detune + (Math.random() - 0.5) * 3
+        const g = ctx.createGain()
+        g.gain.value = i === 0 ? 0.9 : 0.3
+        o.connect(g)
+        g.connect(env)
+        o.start(t)
+        o.stop(t + length + release + 0.05)
+      }
+    })
+  }
+
+  /** A sustained singing voice for the tune: flute, strings or brass. */
+  private lead(t: number, note: number, dur: number, vel: number, voice: 'flute' | 'strings' | 'brass') {
+    const ctx = this.ctx!
+    const f = hz(note)
+    const attack = voice === 'brass' ? 0.05 : voice === 'strings' ? 0.12 : 0.07
+    const release = voice === 'flute' ? 0.25 : 0.4
+    const hold = Math.max(attack + 0.02, dur * 0.92)
+    const end = t + hold + release
+    const env = ctx.createGain()
+    env.gain.setValueAtTime(0, t)
+    env.gain.linearRampToValueAtTime(vel, t + attack)
+    env.gain.setValueAtTime(vel, t + hold)
+    env.gain.linearRampToValueAtTime(0, end)
+    const lp = ctx.createBiquadFilter()
+    lp.type = 'lowpass'
+    if (voice === 'brass') {
+      lp.Q.value = 1.5
+      lp.frequency.setValueAtTime(500, t)
+      lp.frequency.exponentialRampToValueAtTime(2600, t + 0.1)
+      lp.frequency.exponentialRampToValueAtTime(1400, t + hold)
+    } else {
+      lp.Q.value = 0.7
+      lp.frequency.value = voice === 'strings' ? 2600 : 1900
+    }
+    lp.connect(env)
+    env.connect(this.buses.music)
+    const send = ctx.createGain()
+    send.gain.value = 0.9
+    env.connect(send)
+    send.connect(this.reverbSend)
+    // Vibrato that blooms after the attack.
+    const vib = ctx.createOscillator()
+    vib.frequency.value = 5 + Math.random() * 0.6
+    const depth = ctx.createGain()
+    depth.gain.setValueAtTime(0, t)
+    depth.gain.linearRampToValueAtTime(voice === 'brass' ? 4 : voice === 'strings' ? 9 : 7, t + Math.min(0.35, hold))
+    vib.connect(depth)
+    const parts: [OscillatorType, number, number, number][] =
+      voice === 'flute'
+        ? [
+            ['triangle', 1, 0, 0.8],
+            ['sine', 2, 0, 0.12],
+          ]
+        : voice === 'strings'
+          ? [
+              ['sawtooth', 1, -6, 0.45],
+              ['sawtooth', 1, 7, 0.45],
+            ]
+          : [
+              ['sawtooth', 1, 0, 0.55],
+              ['sawtooth', 1, 5, 0.35],
+              ['square', 0.5, 0, 0.12],
+            ]
+    for (const [type, mult, detune, amp] of parts) {
+      const o = ctx.createOscillator()
+      o.type = type
+      o.frequency.value = f * mult
+      o.detune.value = detune
+      depth.connect(o.detune)
+      const g = ctx.createGain()
+      g.gain.value = amp
+      o.connect(g)
+      g.connect(lp)
+      o.start(t)
+      o.stop(end + 0.05)
+    }
+    vib.start(t)
+    vib.stop(end + 0.05)
+  }
+
+  /** Bring the low drone into the new carol's key. */
+  private retuneDrone(tonic: number) {
+    if (!this.ctx || !this.drone) return
+    const base = 24 + tonic + (tonic < 2 ? 12 : 0)
+    const t = this.ctx.currentTime
+    const [low, mid, beat] = this.drone.oscs
+    low.frequency.setTargetAtTime(hz(base), t, 1.2)
+    mid.frequency.setTargetAtTime(hz(base + 12), t, 1.2)
+    beat.frequency.setTargetAtTime(hz(base + 12) * 1.003, t, 1.2)
   }
 
   /** A soft timpani stroke (pitched sine with a falling envelope and a felt thump). */
@@ -974,7 +1129,7 @@ export class AudioManager {
     })
   }
 
-  private sparkle(t: number, note: number, vel: number, bus: GainNode) {
+  private sparkle(t: number, note: number, vel: number, bus: GainNode, panTo?: number) {
     const ctx = this.ctx!
     const f = hz(note)
     const g = ctx.createGain()
@@ -982,7 +1137,7 @@ export class AudioManager {
     g.gain.linearRampToValueAtTime(vel, t + 0.005)
     g.gain.exponentialRampToValueAtTime(0.0001, t + 2.6)
     const pan = ctx.createStereoPanner()
-    pan.pan.value = (Math.random() - 0.5) * 1.2
+    pan.pan.value = panTo ?? (Math.random() - 0.5) * 1.2
     g.connect(pan)
     pan.connect(bus)
     const send = ctx.createGain()
@@ -1205,3 +1360,13 @@ export class AudioManager {
 }
 
 export const audioManager = new AudioManager()
+
+/** The chord sounding at `beat` of a carol (undefined during a leading rest). */
+function chordAt(def: Carol, beat: number) {
+  let found: CarolChord | undefined
+  for (const c of def.chords) {
+    if (c.beat > beat) break
+    found = c
+  }
+  return found
+}

@@ -34,8 +34,22 @@ All need verified licences that allow commercial use, then: optimise → Draco/M
 
 Current `src/audio/engine/audio-manager.ts` synthesises everything in Web Audio:
 Arctic wind (filtered pink noise + LFO gusts), distant bronze bell (inharmonic partials +
-reverb), adaptive pad score (mysterious minor → magical major at the village reveal),
-celesta-like sparkles, low drone; for the Express: exhaust chuffs locked to wheel rotation, rail-joint clatter, three-chime whistle, steam hiss, speed-following rumble and a pizzicato ostinato; for the Workshop: machinery hum, metallic clanks, bouncing bass with music-box arpeggios, and interaction sounds.
+reverb), celesta-like sparkles, a low drone that follows the key; for the Express: exhaust chuffs locked to wheel rotation, rail-joint clatter, three-chime whistle, steam hiss and speed-following rumble; for the Workshop: machinery hum, metallic clanks and interaction sounds.
+
+**Score: public-domain carols** (`src/audio/engine/carols.ts`), arranged as note data and played live by synth voices (flute, strings, brass, bells, music box, choir, timpani). No recordings and no modern arrangements or lyrics are used:
+
+| Destination | Carol | Source (public domain) |
+|---|---|---|
+| 01 The Arrival | Greensleeves (What Child Is This) | English traditional, 16th c. |
+| 02 The Christmas Express | Jingle Bells | James Lord Pierpont, 1857 |
+| 03 The Great Workshop | Deck the Halls | Welsh traditional |
+| 04 The Clock, stopped | Carol of the Bells (Shchedryk) | Mykola Leontovych, 1916 (instrumental) |
+| 04 The Clock, after midnight | Ding Dong Merrily on High | Arbeau, *Orchésographie*, 1588 |
+| 05 The Reindeer Stables | We Three Kings | John Henry Hopkins Jr., 1857 |
+| 06 The Christmas Eve Flight | Hark! The Herald Angels Sing | Felix Mendelssohn, 1840 |
+| 07 Christmas Morning | Silent Night | Franz Xaver Gruber, 1818 |
+
+Recorded performances of these carols are separately copyrighted; any recordings used in production must be commissioned or licensed (or verifiably public domain / CC0).
 
 Final production needs (original or properly licensed — **no** copies or sound-alikes of
 existing film scores):
