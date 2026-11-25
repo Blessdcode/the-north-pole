@@ -36,10 +36,10 @@ const WORKSHOP: Rig[] = [
 
 const SY = STABLES.floor
 const STABLES_RIG: Rig[] = [
-  { pos: [STABLES.x, SY + 6.2, -6], color: '#ffad5c', intensity: 650, distance: 28 },
-  { pos: [STABLES.x, SY + 6.2, -22], color: '#ffad5c', intensity: 650, distance: 28 },
-  { pos: [STABLES.x, SY + 6.2, -38], color: '#ffad5c', intensity: 650, distance: 28 },
-  { pos: [STABLES.x, SY + 4.5, -55], color: '#ffb468', intensity: 900, distance: 34 },
+  { pos: [STABLES.x, SY + 6.2, -6], color: '#ffad5c', intensity: 240, distance: 28 },
+  { pos: [STABLES.x, SY + 6.2, -22], color: '#ffad5c', intensity: 240, distance: 28 },
+  { pos: [STABLES.x, SY + 6.2, -38], color: '#ffad5c', intensity: 240, distance: 28 },
+  { pos: [STABLES.x, SY + 4.5, -55], color: '#ffb468', intensity: 340, distance: 34 },
 ]
 
 /** In flight one warm light rides with the sleigh (on Santa and the team); the rest rest. */

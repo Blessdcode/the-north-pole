@@ -16,8 +16,11 @@ const KEYS: Key[] = [
   { t: 0, pos: start.pos.clone(), look: start.look.clone(), fov: start.fov },
   { t: 0.25, pos: new Vector3(start.pos.x + 25, start.pos.y - 30, start.pos.z + 40), look: new Vector3(1500, 330, 2500), fov: 40 },
   { t: 0.5, pos: new Vector3(430, 360, 420), look: new Vector3(0, 70, 0), fov: 42 },
-  { t: 0.75, pos: new Vector3(560, 400, 620), look: new Vector3(-10, 80, -50), fov: 40 },
-  { t: 1, pos: new Vector3(660, 450, 780), look: new Vector3(-40, 90, -120), fov: 38 },
+  // Pull back east-northeast: the ridge south-east of the village (≈550 m at
+  // 560, 620) would otherwise block the view. Keys checked for terrain clearance
+  // and line of sight to the village (≥ 80 m along the whole spline).
+  { t: 0.75, pos: new Vector3(590, 440, 413), look: new Vector3(-10, 80, -40), fov: 40 },
+  { t: 1, pos: new Vector3(745, 520, 430), look: new Vector3(-30, 90, -100), fov: 38 },
 ]
 const pos = new CatmullRomCurve3(
   KEYS.map((k) => k.pos),

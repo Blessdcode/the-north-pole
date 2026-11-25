@@ -26,6 +26,12 @@ gsap.registerPlugin(ScrollTrigger)
  */
 export const scroll = {
   lenis: null as Lenis | null,
+  /**
+   * Set by restartJourney(): the clock is stopped again only once the rewind
+   * has carried the journey back before the clock chapter. Resetting it up
+   * front would close the story gate mid-rewind and trap the scroll there.
+   */
+  clockResetPending: false,
 }
 
 export function attachStoryController(track: HTMLElement, reducedMotion: boolean) {
@@ -49,6 +55,11 @@ export function attachStoryController(track: HTMLElement, reducedMotion: boolean
     end: 'bottom bottom',
     onUpdate: (self) => {
       let p = self.progress
+      if (scroll.clockResetPending && chapterLocal(p, 'clock') <= 0) {
+        // A fresh journey: the Great Clock stops again, waiting to be wound.
+        scroll.clockResetPending = false
+        resetClock()
+      }
       // Story gate: the journey waits inside the clock until it has been wound
       // and its awakening has played.
       if (!clockState.gateOpen && p > CLOCK_GATE) {
@@ -115,8 +126,8 @@ export function unlockScroll() {
 export function restartJourney() {
   const lenis = scroll.lenis
   if (!lenis) return
-  // A fresh journey: the Great Clock stops again, waiting to be wound.
-  resetClock()
+  // The clock is stopped once the rewind has passed back below its chapter (see onUpdate).
+  scroll.clockResetPending = true
   audioManager.resetCelebration()
   useExperience.getState().setAtClockGate(false)
   const reduced = useExperience.getState().reducedMotion

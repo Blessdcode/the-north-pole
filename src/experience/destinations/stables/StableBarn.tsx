@@ -53,6 +53,57 @@ function strawTexture() {
   return t
 }
 
+/**
+ * Vertical board-and-batten planking: eight boards per tile with dark seams,
+ * grain streaks and the odd knot. Neutral in tone so the material colour tints it.
+ */
+function planksTexture() {
+  const rand = mulberry32(11)
+  const c = document.createElement('canvas')
+  c.width = 256
+  c.height = 256
+  const ctx = c.getContext('2d')!
+  const bw = 256 / 8
+  for (let b = 0; b < 8; b++) {
+    const l = 78 + rand() * 18
+    ctx.fillStyle = `hsl(30, 12%, ${l}%)`
+    ctx.fillRect(b * bw, 0, bw, 256)
+    for (let g = 0; g < 14; g++) {
+      const x = b * bw + 2 + rand() * (bw - 4)
+      ctx.strokeStyle = `hsla(28, 20%, ${45 + rand() * 25}%, ${0.15 + rand() * 0.25})`
+      ctx.lineWidth = 0.6 + rand() * 1.2
+      ctx.beginPath()
+      ctx.moveTo(x, 0)
+      ctx.bezierCurveTo(x + rand() * 4 - 2, 85, x + rand() * 4 - 2, 170, x + rand() * 3 - 1.5, 256)
+      ctx.stroke()
+    }
+    if (rand() < 0.45) {
+      ctx.fillStyle = 'hsla(25, 30%, 30%, 0.55)'
+      ctx.beginPath()
+      ctx.ellipse(b * bw + bw * (0.3 + rand() * 0.4), rand() * 256, 2.5, 4.5, 0, 0, Math.PI * 2)
+      ctx.fill()
+    }
+    // Seam and batten shadow
+    ctx.fillStyle = 'rgba(20, 10, 4, 0.75)'
+    ctx.fillRect(b * bw, 0, 2, 256)
+    ctx.fillStyle = 'rgba(20, 10, 4, 0.2)'
+    ctx.fillRect(b * bw + 2, 0, 3, 256)
+  }
+  const t = new CanvasTexture(c)
+  t.colorSpace = SRGBColorSpace
+  t.wrapS = t.wrapT = RepeatWrapping
+  t.anisotropy = 4
+  return t
+}
+
+/** A planks texture clone tiled so one tile spans `width` × `height` metres of a face with UVs 0..1. */
+function tiled(base: CanvasTexture, repeatX: number, repeatY: number) {
+  const t = base.clone()
+  t.repeat.set(repeatX, repeatY)
+  t.needsUpdate = true
+  return t
+}
+
 function nameTexture(name: string) {
   const c = document.createElement('canvas')
   c.width = 512
@@ -101,14 +152,27 @@ export function StableBarn() {
     const straw = strawTexture()
     const glow = createGlowTexture()
     const names = NAMES.map(nameTexture)
+    const planks = planksTexture()
+    // Box side faces map 0..1 across the face; extruded gables use metres directly.
+    const PLANK_TILE = 2.4 // metres of wall per texture tile (eight 30 cm boards)
+    const wallMap = tiled(planks, L / PLANK_TILE, 1)
+    const gableMap = tiled(planks, 1 / PLANK_TILE, 1 / (H + BARN.ridge))
+    const leafMap = tiled(planks, 3.6 / PLANK_TILE, 1)
+    const boardColor = '#8a2a1e'
     return {
       straw,
       glow,
       names,
+      planks,
+      wallMap,
+      gableMap,
+      leafMap,
       nameMats: names.map((map) => new MeshBasicMaterial({ map })),
       south: gable(1.7, 3.6),
       north: gable(3.6, 6.4),
-      boards: new MeshStandardMaterial({ color: '#6b1712', roughness: 0.85 }),
+      boards: new MeshStandardMaterial({ color: boardColor, map: wallMap, roughness: 0.9 }),
+      gableBoards: new MeshStandardMaterial({ color: boardColor, map: gableMap, roughness: 0.9 }),
+      leafBoards: new MeshStandardMaterial({ color: boardColor, map: leafMap, roughness: 0.9 }),
       timber: new MeshStandardMaterial({ color: '#5a3820', roughness: 0.85 }),
       dark: new MeshStandardMaterial({ color: '#2a1a10', roughness: 0.8 }),
       roof: new MeshStandardMaterial({ color: '#3a2a22', roughness: 0.8 }),
@@ -120,7 +184,7 @@ export function StableBarn() {
       wreath: new MeshStandardMaterial({ color: '#1f4a2c', roughness: 0.8 }),
       ribbon: new MeshStandardMaterial({ color: '#b3121b', roughness: 0.4 }),
       windowOut: new MeshBasicMaterial({ color: new Color(2.8, 1.8, 0.9), toneMapped: false }),
-      windowIn: new MeshBasicMaterial({ color: new Color(0.05, 0.09, 0.2) }),
+      windowIn: new MeshBasicMaterial({ color: new Color(0.035, 0.06, 0.14) }),
       lamp: new MeshBasicMaterial({ color: new Color(6, 3.6, 1.6), toneMapped: false }),
       pool: new MeshBasicMaterial({
         map: glow,
@@ -183,6 +247,26 @@ export function StableBarn() {
               <mesh material={res.timber} position={[s * (W + 0.56), 5.2, z]}>
                 <boxGeometry args={[0.1, 1.7, 0.14]} />
               </mesh>
+              {/* Inside: frame, sill and a cross of glazing bars */}
+              <group position={[s * (W - 0.06), 5.2, z]}>
+                <mesh material={res.timber} position-y={0.78}>
+                  <boxGeometry args={[0.12, 0.16, 1.92]} />
+                </mesh>
+                <mesh material={res.timber} position={[-s * 0.06, -0.8, 0]}>
+                  <boxGeometry args={[0.24, 0.14, 2.0]} />
+                </mesh>
+                {[-0.88, 0.88].map((dz) => (
+                  <mesh key={dz} material={res.timber} position-z={dz}>
+                    <boxGeometry args={[0.12, 1.72, 0.16]} />
+                  </mesh>
+                ))}
+                <mesh material={res.timber}>
+                  <boxGeometry args={[0.08, 1.4, 0.07]} />
+                </mesh>
+                <mesh material={res.timber}>
+                  <boxGeometry args={[0.08, 0.07, 1.6]} />
+                </mesh>
+              </group>
             </group>
           ))}
           {/* Corner posts */}
@@ -194,8 +278,8 @@ export function StableBarn() {
         </group>
       ))}
       {/* Gables */}
-      <mesh geometry={res.south} material={res.boards} position-z={BARN.south - 0.5} />
-      <mesh geometry={res.north} material={res.boards} position-z={BARN.north} />
+      <mesh geometry={res.south} material={res.gableBoards} position-z={BARN.south - 0.5} />
+      <mesh geometry={res.north} material={res.gableBoards} position-z={BARN.north} />
       {/* Roof, snow, ridge */}
       {[-1, 1].map((s) => (
         <group key={`roof${s}`}>
@@ -299,7 +383,7 @@ export function StableBarn() {
       </mesh>
       {/* North doors: two leaves hinged at the opening's edges, swinging out */}
       <group ref={leafL} position={[-3.6, 0, BARN.north]}>
-        <mesh material={res.boards} position={[1.8, 3.2, -0.15]}>
+        <mesh material={res.leafBoards} position={[1.8, 3.2, -0.15]}>
           <boxGeometry args={[3.6, 6.4, 0.25]} />
         </mesh>
         <mesh material={res.timber} position={[1.8, 3.2, -0.3]} rotation-z={0.9}>
@@ -307,7 +391,7 @@ export function StableBarn() {
         </mesh>
       </group>
       <group ref={leafR} position={[3.6, 0, BARN.north]}>
-        <mesh material={res.boards} position={[-1.8, 3.2, -0.15]}>
+        <mesh material={res.leafBoards} position={[-1.8, 3.2, -0.15]}>
           <boxGeometry args={[3.6, 6.4, 0.25]} />
         </mesh>
         <mesh material={res.timber} position={[-1.8, 3.2, -0.3]} rotation-z={-0.9}>

@@ -192,10 +192,21 @@ export function heightAt(x: number, z: number) {
     }
   }
 
-  // The Reindeer Stables' pad and launch field.
+  // The Reindeer Stables' pad and launch field. Drifts are calmed over the
+  // graded ground and removed under the barn (graded to exactly STABLES.floor,
+  // just under the floor boards) so snow never shows through.
+  let calm = 0
   {
     const s = stablesGrade(x, z)
-    if (s) h = lerp(h, s.target, s.w)
+    if (s) {
+      h = lerp(h, s.target, s.w)
+      calm = s.w * 0.8
+      const inBarn =
+        (1 - smoothstep(STABLES.halfWidth + 1, STABLES.halfWidth + 4, Math.abs(x - STABLES.x))) *
+        smoothstep(STABLES.north - 4, STABLES.north - 1, z) *
+        (1 - smoothstep(STABLES.south + 1, STABLES.south + 4, z))
+      calm = Math.max(calm, inBarn)
+    }
   }
 
   // Railway formation: cut and fill toward the grade, except where the line
@@ -213,7 +224,7 @@ export function heightAt(x: number, z: number) {
 
   // Surface detail — wind-blown drifts (kept off the track bed).
   const d = Math.hypot(x, z)
-  h += noiseC(x * 0.03, z * 0.03) * 0.6 * (0.4 + smoothstep(VILLAGE_RADIUS - 10, 1150, d)) * (1 - bed)
+  h += noiseC(x * 0.03, z * 0.03) * 0.6 * (0.4 + smoothstep(VILLAGE_RADIUS - 10, 1150, d)) * (1 - bed) * (1 - calm)
   return h
 }
 
