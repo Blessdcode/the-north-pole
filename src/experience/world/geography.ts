@@ -18,6 +18,8 @@ import { gradeAt, HALL_GRADE, RAIL_LENGTH, railNearest, railPointAt, S_STATION, 
  */
 
 export const WORLD_SIZE = 6400
+/** Level of the frozen sea's ice sheet. */
+export const SEA_LEVEL = 0
 export const VILLAGE_RADIUS = 250
 export const RIDGE_Z = 560
 
@@ -25,8 +27,8 @@ export const LANDMARKS = {
   clock: { x: 0, z: 0 },
   station: { x: STATION_TRACK_X, z: STATION_Z },
   workshop: { x: -760, z: -170 },
-  stables: { x: 420, z: -30 },
-  launch: { x: 0, z: -520 },
+  stables: { x: 430, z: -30 },
+  launch: { x: 430, z: -160 },
 } as const
 
 /** The Great Workshop's hall, carved inside the massif (Destination 03). */
@@ -34,6 +36,43 @@ export const WORKSHOP_HALL = { west: -720, east: -540, north: -100, south: -200,
 
 /** The Great Workshop's gallery breaks out of the massif's east face here (Destination 03). */
 export const WORKSHOP_GALLERY = { y: HALL_GRADE + 32, z: -185, width: 7, height: 7, mouthX: -376 }
+
+/**
+ * The Reindeer Stables (Destination 05): a level pad for the barn and a
+ * launch field running north from its great doors, rising gently toward the
+ * mountains the sleigh must climb over in Destination 06.
+ */
+export const STABLES = {
+  x: 430,
+  south: 0,
+  north: -60,
+  halfWidth: 12,
+  floor: 19,
+  runwayEnd: -262,
+  runwaySlope: 0.055,
+}
+
+/** Ground level the stables and launch field are graded to (or null outside them). */
+function stablesGrade(x: number, z: number) {
+  const dx = Math.abs(x - STABLES.x)
+  // Pad around the barn.
+  const outZ = Math.max(z - (STABLES.south + 30), STABLES.north - 15 - z, 0)
+  const pad = (1 - smoothstep(28, 44, dx)) * (1 - smoothstep(0, 16, outZ))
+  // Launch field north of the doors.
+  const beyond = Math.max(STABLES.runwayEnd - z, 0)
+  const field = z < STABLES.north ? (1 - smoothstep(18, 32, dx)) * (1 - smoothstep(0, 30, beyond)) : 0
+  const w = Math.max(pad, field)
+  if (w <= 0) return null
+  // Level where the team stands in harness, then rising gently toward the mountains.
+  const target = STABLES.floor + Math.max(0, STABLES.north - 30 - z) * STABLES.runwaySlope
+  return { w, target }
+}
+
+/** Inside the stables yard or the launch field (kept clear of trees). */
+export function inStablesGrounds(x: number, z: number) {
+  const dx = Math.abs(x - STABLES.x)
+  return (dx < 40 && z < STABLES.south + 36 && z > STABLES.north - 22) || (dx < 30 && z <= STABLES.north && z > STABLES.runwayEnd - 10)
+}
 
 /** Gift Line cableway footprint (x, z): Workshop balcony → two pylons → village terminal. */
 export const GIFT_LINE: [number, number][] = [
@@ -121,6 +160,12 @@ function naturalHeight(x: number, z: number) {
   const wm = Math.hypot(x - LANDMARKS.workshop.x, z - LANDMARKS.workshop.z)
   h += Math.pow(smoothstep(470, 110, wm), 1.3) * (360 + ridged(x * 0.003 - 7.1, z * 0.003 + 2.2, 5) * 300)
 
+  // The frozen sea beyond the northern range (Destination 06). An irregular
+  // coastline; the sea bed sits below the ice sheet that is drawn at y = 0.
+  const coast = fbm(x * 0.0011 + 5.2, 1.7, 3) * 380
+  const sea = smoothstep(-1220, -1620, z + coast) * (1 - smoothstep(2600, 3100, Math.abs(x)))
+  h = lerp(h, -8 + fbm(x * 0.004, z * 0.004, 2) * 4, sea)
+
   // Flat-bottomed (super-gaussian) glacial valley in the south.
   const valley = Math.exp(-(((x - valleyX(z)) / 250) ** 4)) * smoothstep(740, 980, z)
   h = lerp(h, valleyFloor(z) + 3 + h * 0.05, valley)
@@ -145,6 +190,12 @@ export function heightAt(x: number, z: number) {
         h = lerp(h, Math.min(h, below), side * smoothstep(G.mouthX + 45, G.mouthX + 30, x))
       }
     }
+  }
+
+  // The Reindeer Stables' pad and launch field.
+  {
+    const s = stablesGrade(x, z)
+    if (s) h = lerp(h, s.target, s.w)
   }
 
   // Railway formation: cut and fill toward the grade, except where the line

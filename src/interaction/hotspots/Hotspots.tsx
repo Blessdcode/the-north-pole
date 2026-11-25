@@ -2,6 +2,7 @@ import { audioManager } from '../../audio/engine/audio-manager'
 import { journey } from '../../cinematic/journey'
 import { emitStoryEvent } from '../../cinematic/story-events'
 import { STORY_BEATS } from '../../config/destinations'
+import { nowSeconds, stablesState } from '../../experience/destinations/stables/stables-state'
 import { workshopState } from '../../experience/destinations/workshop/workshop-state'
 import { useExperience } from '../../store/experience-store'
 import { Hotspot } from './Hotspot'
@@ -10,6 +11,8 @@ const beatIndex = (id: string) => STORY_BEATS.findIndex((b) => b.id === id)
 const STATION = beatIndex('station')
 const MACHINES = beatIndex('machines')
 const GIFT = beatIndex('gift')
+const TEAM = beatIndex('team')
+const SLEIGH = beatIndex('sleigh')
 
 /** Every interactive point of the journey, each shown only in its own story beat. */
 export function Hotspots() {
@@ -50,6 +53,26 @@ export function Hotspots() {
           workshopState.tagRead = true
           emitStoryEvent('gift:tag', {})
           setOpenHotspot('gift')
+        }}
+      />
+      <Hotspot
+        id="reindeer"
+        label="Greet Dasher"
+        ariaLabel="Greet Dasher, the lead reindeer"
+        visible={free && activeBeat === TEAM}
+        onActivate={() => {
+          stablesState.greetedAt = nowSeconds()
+          emitStoryEvent('reindeer:snort', { proximity: 1 })
+        }}
+      />
+      <Hotspot
+        id="sleigh"
+        label="Ring the sleigh bells"
+        ariaLabel="Ring the sleigh bells"
+        visible={free && activeBeat === SLEIGH}
+        onActivate={() => {
+          stablesState.bellsAt = nowSeconds()
+          emitStoryEvent('sleigh:bells', {})
         }}
       />
     </>

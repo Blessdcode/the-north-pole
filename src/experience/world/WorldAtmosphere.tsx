@@ -64,7 +64,10 @@ export function WorldAtmosphere() {
   }, [scene])
 
   useFrame(() => {
-    if (scene.fog instanceof FogExp2) scene.fog.density = weather.fog
+    if (scene.fog instanceof FogExp2) {
+      scene.fog.density = weather.fog
+      scene.fog.color.copy(PALETTE.fog)
+    }
   })
 
   return null

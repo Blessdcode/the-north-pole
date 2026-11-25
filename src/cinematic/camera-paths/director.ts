@@ -4,8 +4,13 @@ import { trainFrontS } from '../express-timeline'
 import { ARRIVAL_KEYS, createCameraPath } from './arrival-path'
 import { expressShot } from './express-shots'
 import { clockShot } from './clock-shots'
+import { flightShot } from './flight-shots'
+import { morningShot } from './morning-shots'
+import { stablesShot } from './stables-shots'
 import { workshopShot } from './workshop-shots'
 import type { Shot } from './shot'
+
+export { createShot } from './director-shot'
 
 /**
  * The director: for any point of the journey, the authored shot.
@@ -22,10 +27,6 @@ const arrivalEnd: Shot = {
   clearance: 4,
 }
 
-export function createShot(): Shot {
-  return { pos: new Vector3(), look: new Vector3(), fov: 45, roll: 0, clearance: 4 }
-}
-
 export function directShot(progress: number, out: Shot) {
   const chapter = chapterAt(progress)
   if (chapter.id === 'arrival') {
@@ -38,6 +39,9 @@ export function directShot(progress: number, out: Shot) {
     out.clearance = 4
     return out
   }
+  if (chapter.id === 'morning') return morningShot(chapterLocal(progress, 'morning'), out)
+  if (chapter.id === 'flight') return flightShot(chapterLocal(progress, 'flight'), out)
+  if (chapter.id === 'stables') return stablesShot(chapterLocal(progress, 'stables'), out)
   if (chapter.id === 'clock') return clockShot(chapterLocal(progress, 'clock'), out)
   if (chapter.id === 'workshop') return workshopShot(chapterLocal(progress, 'workshop'), out)
   return expressShot(chapterLocal(progress, 'express'), trainFrontS(progress), arrivalEnd, out)

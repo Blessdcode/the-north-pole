@@ -2,6 +2,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { useEffect, useMemo } from 'react'
 import { BufferAttribute, BufferGeometry, ShaderMaterial, Vector2, Vector3 } from 'three'
 import { mulberry32 } from '../../../lib/math'
+import { timeOfDay } from '../lighting/time-of-day'
 import { weather } from './weather-controller'
 
 const vertexShader = /* glsl */ `
@@ -98,7 +99,7 @@ export function Snowfall({ count }: { count: number }) {
           uIntensity: { value: 0 },
           uSize: { value: 0.9 },
           uPixelRatio: { value: 1 },
-          uColor: { value: [0.86, 0.9, 1.0] },
+          uColor: { value: new Vector3(0.86, 0.9, 1.0) },
         },
       }),
     [],
@@ -128,6 +129,8 @@ export function Snowfall({ count }: { count: number }) {
     u.uDrift.value.set(drift.x, drift.z)
     u.uIntensity.value = Math.min(1, weather.snow + weather.surge * 0.6)
     u.uPixelRatio.value = gl.getPixelRatio()
+    const d = timeOfDay.dawn
+    u.uColor.value.set(0.86 + d * 0.14, 0.9 + d * 0.02, 1.0 - d * 0.12)
   })
 
   return <points geometry={geometry} material={material} frustumCulled={false} renderOrder={10} />

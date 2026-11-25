@@ -12,6 +12,7 @@ import { ScrollProgress } from '../components/interface/ScrollProgress'
 import { SoundToggle } from '../components/interface/SoundToggle'
 import { ChapterEndCard } from '../components/overlays/ChapterEndCard'
 import { ClockStoryCard } from '../components/overlays/ClockStoryCard'
+import { EndingSequence } from '../components/overlays/EndingSequence'
 import { GiftTagCard } from '../components/overlays/GiftTagCard'
 import { TunnelTransition } from '../components/overlays/TunnelTransition'
 import { WebGLFallback } from '../components/overlays/WebGLFallback'
@@ -97,7 +98,7 @@ function Experience() {
 
       {/* The scroll track: its length is the length of the journey. Text here is the
           accessible version of the story for screen readers. */}
-      <main ref={track} className="relative z-0 h-[3600vh] max-sm:h-[2900vh]" aria-label="The journey">
+      <main ref={track} className="relative z-0 h-[6000vh] max-sm:h-[4800vh]" aria-label="The journey">
         {STORY_BEATS.map((b) => (
           <section key={b.id} className="sr-only">
             <h2>{b.kicker}</h2>
@@ -117,6 +118,7 @@ function Experience() {
       <ClockStoryCard />
       <GiftTagCard />
       <ChapterEndCard />
+      <EndingSequence />
       <IntroScreen onStart={handleStart} />
       <LoadingScreen />
     </>

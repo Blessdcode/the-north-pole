@@ -27,7 +27,7 @@ varying float vT;
 void main() {
   float kind = aInfo.y;
   float age = uTime - aInfo.x;
-  float life = (kind < 0.5 ? 3.6 : (kind < 1.5 ? 1.7 : 1.1)) * (0.75 + aSeed * 0.5);
+  float life = (kind < 0.5 ? 3.6 : (kind < 1.5 ? 1.7 : (kind < 2.5 ? 1.1 : (kind < 3.5 ? 1.9 : 2.8)))) * (0.75 + aSeed * 0.5);
   float t = age / life;
   vKind = kind;
   vSeed = aSeed;
@@ -38,20 +38,28 @@ void main() {
     vAlpha = 0.0;
     return;
   }
-  float drag = kind < 1.5 ? 1.7 : 0.35;
+  float drag = kind < 1.5 ? 1.7 : (kind < 2.5 ? 0.35 : (kind < 3.5 ? 2.6 : 1.2));
   vec3 p = position + aVel * ((1.0 - exp(-drag * age)) / drag);
   if (kind < 1.5) {
     p.y += age * age * (kind < 0.5 ? 0.45 : 0.25);
     p.xz += uWind * age * age * 0.7;
-  } else {
+  } else if (kind < 2.5) {
     p.y -= 2.7 * age * age;
+  } else if (kind < 3.5) {
+    // Breath: a warm puff that slows, curls upward and dissolves.
+    p.y += age * age * 0.12;
+    p.xz += uWind * age * age * 0.15;
+  } else {
+    // Sparkle: magic dust from the sleigh, drifting slowly down.
+    p.y -= age * age * 0.35;
+    p.x += sin(age * 3.0 + aSeed * 30.0) * 0.4 * age;
   }
   vec4 mv = modelViewMatrix * vec4(p, 1.0);
   gl_Position = projectionMatrix * mv;
-  float size = kind < 0.5 ? (1.0 + t * 7.5) : (kind < 1.5 ? (0.45 + t * 3.6) : 0.12);
+  float size = kind < 0.5 ? (1.0 + t * 7.5) : (kind < 1.5 ? (0.45 + t * 3.6) : (kind < 2.5 ? 0.12 : (kind < 3.5 ? (0.12 + t * 0.9) : 0.11 * (1.0 + 0.6 * sin(uTime * 14.0 + aSeed * 60.0)))));
   gl_PointSize = clamp(size * uPxScale / max(-mv.z, 0.5), 0.0, 480.0);
-  float fade = kind < 1.5 ? smoothstep(0.0, 0.07, t) * pow(1.0 - t, 1.4) : 1.0 - t;
-  vAlpha = fade * (kind < 0.5 ? 0.5 : (kind < 1.5 ? 0.62 : 0.9));
+  float fade = (kind < 1.5 || (kind > 2.5 && kind < 3.5)) ? smoothstep(0.0, 0.07, t) * pow(1.0 - t, 1.4) : 1.0 - t;
+  vAlpha = fade * (kind < 0.5 ? 0.5 : (kind < 1.5 ? 0.62 : (kind < 2.5 ? 0.9 : (kind < 3.5 ? 0.32 : 1.0))));
 }
 `
 
@@ -66,7 +74,10 @@ void main() {
   float d = length(uv);
   float a;
   vec3 col;
-  if (vKind > 1.5) {
+  if (vKind > 3.5) {
+    a = pow(smoothstep(0.5, 0.0, d), 2.5);
+    col = vec3(2.4, 1.7, 0.7);
+  } else if (vKind > 1.5 && vKind < 2.5) {
     a = smoothstep(0.5, 0.1, d);
     col = vec3(0.95, 0.97, 1.0);
   } else {

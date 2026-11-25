@@ -15,6 +15,8 @@ const TEASERS: Partial<Record<string, string>> = {
 /** End of the currently built journey: points at the next destination in production. */
 export function ChapterEndCard() {
   const reachedEnd = useExperience((s) => s.reachedEnd)
+  // Every destination is built: the Christmas Morning ending takes over.
+  if (!NEXT) return null
   return (
     <section
       aria-labelledby="end-title"

@@ -4,6 +4,7 @@ import { DirectionalLight, HemisphereLight, Object3D } from 'three'
 import { Color } from 'three'
 import { journey } from '../../cinematic/journey'
 import { environment } from '../systems/lighting/environment'
+import { timeOfDay } from '../systems/lighting/time-of-day'
 import { MOON_DIRECTION, PALETTE } from './palette'
 
 const WARM_SKY = new Color('#ffb877')
@@ -62,7 +63,14 @@ export function WorldLighting({ shadows }: { shadows: boolean }) {
     // Inside the Workshop the moon is gone and the fill turns lantern-warm.
     const r = journey.reveal
     const inside = environment.interior
-    if (moon.current) moon.current.intensity = 1.55 * r * (1 - inside)
+    const dawn = timeOfDay.dawn
+    if (moon.current) {
+      moon.current.intensity = (1.55 * (1 - dawn) + 2.8 * dawn) * r * (1 - inside)
+      moon.current.color.copy(PALETTE.moonlight)
+      moon.current.position.copy(timeOfDay.keyDirection).multiplyScalar(1400)
+    }
+    // The light swings toward the rising sun: keep the (static) shadow map in step.
+    if (shadows && dawn > 0.001 && dawn < 0.999) gl.shadowMap.needsUpdate = true
     if (hemi.current) {
       hemi.current.intensity = (0.7 * r + 0.02) * (1 - inside) + 0.55 * inside
       hemi.current.color.copy(PALETTE.hemiSky).lerp(WARM_SKY, inside)

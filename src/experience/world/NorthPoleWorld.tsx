@@ -5,11 +5,14 @@ import { journey } from '../../cinematic/journey'
 import { QUALITY, type QualityLevel } from '../../config/quality'
 import { HotspotProjector } from '../../interaction/hotspots/HotspotProjector'
 import { Clock } from '../destinations/clock/Clock'
+import { AerialWorld } from '../destinations/flight/AerialWorld'
+import { Stables } from '../destinations/stables/Stables'
 import { Village } from '../destinations/village/Village'
 import { Workshop } from '../destinations/workshop/Workshop'
 import { Train } from '../entities/train/Train'
 import { environment, updateEnvironment } from '../systems/lighting/environment'
 import { LightDirector } from '../systems/lighting/LightDirector'
+import { updateTimeOfDay } from '../systems/lighting/time-of-day'
 import { SteamSystem } from '../systems/particles/SteamSystem'
 import { Snowfall } from '../systems/weather/Snowfall'
 import { updateWeather } from '../systems/weather/weather-controller'
@@ -26,6 +29,7 @@ import { WorldLighting } from './WorldLighting'
 function WorldState() {
   useFrame(({ clock }, dt) => {
     updateEnvironment(journey.progress)
+    updateTimeOfDay(journey.progress)
     updateWeather(clock.elapsedTime, Math.min(dt, 0.1))
   }, -2)
   return null
@@ -58,6 +62,8 @@ export function NorthPoleWorld({ quality }: { quality: QualityLevel }) {
         <Forest count={q.treeCount} />
         <Railway />
         <Village shadows={shadows} smokePerChimney={q.smokePerChimney} />
+        <Stables />
+        <AerialWorld />
         <Snowfall count={q.snowCount} />
       </OpenAir>
       <Workshop />

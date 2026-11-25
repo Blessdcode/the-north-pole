@@ -36,7 +36,7 @@ const AWAKE_KEYS: Key[] = [
   { t: 0.55, pos: [55, 58, 95], look: [0, 30, 0], fov: 48 },
   { t: 0.7, pos: [78, 20, 26], look: [0, 42, 0], fov: 46 },
   { t: 0.86, pos: [150, 28, -18], look: [330, 16, -32], fov: 46 },
-  { t: 1.0, pos: [250, 34, -32], look: [430, 12, -30], fov: 44 },
+  { t: 1.0, pos: [250, 38, -32], look: [430, 24, -30], fov: 44 },
 ]
 
 function makePath(keys: Key[]) {

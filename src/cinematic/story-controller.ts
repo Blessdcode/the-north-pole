@@ -7,6 +7,8 @@ import { clockState, isClockRunning, resetClock } from '../experience/destinatio
 import { environment } from '../experience/systems/lighting/environment'
 import { weather } from '../experience/systems/weather/weather-controller'
 import { useExperience } from '../store/experience-store'
+import { flightState } from '../experience/destinations/flight/flight-path'
+import { smoothstep } from '../lib/math'
 import { trainState } from './express-timeline'
 import { journey } from './journey'
 
@@ -81,7 +83,15 @@ export function attachStoryController(track: HTMLElement, reducedMotion: boolean
       const musicProgress = ch === 'arrival' ? chapterLocal(p, 'arrival') : ch === 'clock' && !isClockRunning() ? 0.45 : 1
       audioManager.update(musicProgress, weather.wind)
       audioManager.setChapter(chapterAt(p).id)
-      audioManager.setTrain(trainState.speed, trainState.proximity)
+      const fl = chapterLocal(p, 'flight')
+      if (ch === 'flight') {
+        // Air rushing past the sleigh; the score climbs to its climax and resolves as they fly away.
+        audioManager.setTrain(flightState.speed * 0.3, 0.9)
+        audioManager.setFlightIntensity(smoothstep(0.08, 0.3, fl) * 0.7 + smoothstep(0.45, 0.6, fl) * 0.3 - smoothstep(0.9, 1, fl) * 0.6)
+      } else {
+        audioManager.setTrain(trainState.speed, trainState.proximity)
+        audioManager.setFlightIntensity(0)
+      }
       audioManager.setInterior(environment.interior)
     }
   }

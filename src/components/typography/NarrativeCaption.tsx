@@ -17,7 +17,7 @@ export function NarrativeCaption() {
       className="pointer-events-none fixed inset-x-0 top-[16vh] z-20 flex justify-center px-6 sm:top-auto sm:bottom-[21vh]"
     >
       {STORY_BEATS.map((beat, i) => {
-        const on = live && i === activeBeat
+        const on = live && i === activeBeat && beat.line.length > 0
         return (
           <div
             key={beat.id}

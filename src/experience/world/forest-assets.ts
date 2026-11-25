@@ -2,7 +2,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { BufferAttribute, BufferGeometry, Color, ConeGeometry, CylinderGeometry } from 'three'
 import { mulberry32 } from '../../lib/math'
 import { createNoise2D } from '../../lib/noise'
-import { distanceToGiftLine, distanceToRail, heightAt, slopeAt } from './geography'
+import { distanceToGiftLine, distanceToRail, heightAt, inStablesGrounds, slopeAt } from './geography'
 
 /** A snow-laden Arctic spruce: stacked tiers, snow on the upper surfaces. */
 export function buildSpruceGeometry() {
@@ -70,8 +70,10 @@ export function scatterTrees(count: number): TreeInstance[] {
     const railD = distanceToRail(x, z)
     if (railD < 16) continue
     if (distanceToGiftLine(x, z) < 10) continue // keep the cableway clear
+    if (inStablesGrounds(x, z)) continue // the stables yard and launch field
     const h = heightAt(x, z)
     if (h > 300) continue
+    if (h < 1.5) continue // not on the frozen sea
     const slope = slopeAt(x, z)
     if (slope > 0.6) continue
     const density = clump(x * 0.004, z * 0.004) * 0.6 + clump(x * 0.015, z * 0.015) * 0.4

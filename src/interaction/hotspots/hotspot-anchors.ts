@@ -20,6 +20,8 @@ export const hotspotAnchors = {
   clock: anchor('clock', 0, 68, 9),
   machine: anchor('machine'),
   gift: anchor('gift'),
+  reindeer: anchor('reindeer'),
+  sleigh: anchor('sleigh'),
 } satisfies Record<string, HotspotAnchor>
 
 export type HotspotId = keyof typeof hotspotAnchors

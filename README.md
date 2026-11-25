@@ -8,7 +8,7 @@ pnpm dev        # http://localhost:5173
 pnpm build && pnpm preview
 ```
 
-**Status:** Destinations 01–04 playable — The Arrival, The Christmas Express, The Great Workshop, The Great Christmas Clock (press-and-hold to wind; the story waits at the clock until it is wound). Next: 05 The Reindeer Stables.
+**Status:** All seven destinations playable — The Arrival, The Christmas Express, The Great Workshop, The Great Christmas Clock (press-and-hold to wind), The Reindeer Stables, The Christmas Eve Flight (Santa revealed), Christmas Morning. Remaining work is production assets (see ASSETS.md), real-device testing and polish.
 See `ASSETS.md` for temporary stand-ins and required production assets, and `north-pole.md` for the full brief.
 
 ## Architecture

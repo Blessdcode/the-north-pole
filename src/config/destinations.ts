@@ -20,9 +20,9 @@ export const DESTINATIONS: Destination[] = [
   { id: 'express', index: 2, title: 'The Christmas Express', available: true },
   { id: 'workshop', index: 3, title: 'The Great Workshop', available: true },
   { id: 'clock', index: 4, title: 'The Great Christmas Clock', available: true },
-  { id: 'stables', index: 5, title: 'The Reindeer Stables', available: false },
-  { id: 'flight', index: 6, title: 'The Christmas Eve Flight', available: false },
-  { id: 'morning', index: 7, title: 'Christmas Morning', available: false },
+  { id: 'stables', index: 5, title: 'The Reindeer Stables', available: true },
+  { id: 'flight', index: 6, title: 'The Christmas Eve Flight', available: true },
+  { id: 'morning', index: 7, title: 'Christmas Morning', available: true },
 ]
 
 export interface Weather {
@@ -243,15 +243,171 @@ const CLOCK: LocalBeat[] = [
   },
 ]
 
+const STABLES: LocalBeat[] = [
+  {
+    id: 'stable-approach',
+    start: 0,
+    end: 0.16,
+    kicker: 'The Reindeer Stables',
+    line: 'Warm lanterns, cold air, and eight restless hearts.',
+    pointerInfluence: 0.8,
+    weather: { snow: 0.85, wind: 0.45, fog: 0.00055, aurora: 0.8 },
+  },
+  {
+    id: 'team',
+    start: 0.16,
+    end: 0.45,
+    kicker: 'The Team',
+    line: 'Each of them knows the way. Each of them knows the night.',
+    pointerInfluence: 1,
+    weather: { snow: 0, wind: 0.1, fog: 0.0003, aurora: 0.8 },
+  },
+  {
+    id: 'sleigh',
+    start: 0.45,
+    end: 0.66,
+    kicker: 'The Sleigh',
+    line: 'Red lacquer, old gold, and a gift for every child in the world.',
+    pointerInfluence: 0.9,
+    weather: { snow: 0, wind: 0.1, fog: 0.0003, aurora: 0.8 },
+  },
+  {
+    id: 'harness',
+    start: 0.66,
+    end: 0.84,
+    kicker: 'Into the Traces',
+    line: 'Bells on every collar. The team takes its place.',
+    pointerInfluence: 0.7,
+    weather: { snow: 0.3, wind: 0.4, fog: 0.0004, aurora: 0.9 },
+  },
+  {
+    id: 'launch-field',
+    start: 0.84,
+    end: 1,
+    kicker: 'The Launch Field',
+    line: 'The doors stand open to the night. Everything is ready. Almost everyone is here.',
+    pointerInfluence: 0.85,
+    weather: { snow: 0.85, wind: 0.55, fog: 0.0005, aurora: 1 },
+  },
+]
+
+const FLIGHT: LocalBeat[] = [
+  {
+    id: 'departure',
+    start: 0,
+    end: 0.1,
+    kicker: 'Christmas Eve',
+    line: 'The team leans into the traces. The snow begins to fly.',
+    pointerInfluence: 0.6,
+    weather: { snow: 0.7, wind: 0.6, fog: 0.0005, aurora: 1 },
+  },
+  {
+    id: 'liftoff',
+    start: 0.1,
+    end: 0.18,
+    kicker: 'Take-off',
+    line: 'And then the ground simply lets them go.',
+    pointerInfluence: 0.4,
+    weather: { snow: 0.6, wind: 0.9, fog: 0.00045, aurora: 1 },
+  },
+  {
+    id: 'reveal',
+    start: 0.18,
+    end: 0.34,
+    kicker: 'Santa',
+    line: 'He has been waiting all year for this night, too.',
+    pointerInfluence: 0.5,
+    weather: { snow: 0.45, wind: 0.8, fog: 0.0004, aurora: 1 },
+  },
+  {
+    id: 'mountains',
+    start: 0.34,
+    end: 0.52,
+    kicker: 'Over the Arctic Range',
+    line: 'Higher than the mountains, faster than the wind.',
+    pointerInfluence: 0.7,
+    weather: { snow: 0.3, wind: 1, fog: 0.00032, aurora: 1 },
+  },
+  {
+    id: 'frozen-sea',
+    start: 0.52,
+    end: 0.66,
+    kicker: 'The Frozen Sea',
+    line: 'Below, the ice. Above, the lights. Ahead, the whole world.',
+    pointerInfluence: 0.8,
+    weather: { snow: 0.15, wind: 0.8, fog: 0.00026, aurora: 1 },
+  },
+  {
+    id: 'alongside',
+    start: 0.66,
+    end: 0.8,
+    kicker: 'One Night',
+    line: 'One sleigh, one night, and every home on Earth.',
+    pointerInfluence: 1,
+    weather: { snow: 0.25, wind: 0.8, fog: 0.0003, aurora: 1 },
+  },
+  {
+    id: 'farewell',
+    start: 0.8,
+    end: 0.92,
+    kicker: 'Farewell, North Pole',
+    line: 'One last circle over the village, and the Great Clock rings them out.',
+    pointerInfluence: 0.8,
+    weather: { snow: 0.5, wind: 0.6, fog: 0.0004, aurora: 1 },
+  },
+  {
+    id: 'away',
+    start: 0.92,
+    end: 1,
+    kicker: 'Merry Christmas',
+    line: 'And away they go.',
+    pointerInfluence: 0.6,
+    weather: { snow: 0.6, wind: 0.5, fog: 0.00045, aurora: 0.9 },
+  },
+]
+
+const MORNING: LocalBeat[] = [
+  {
+    id: 'dawn',
+    start: 0,
+    end: 0.3,
+    kicker: 'Christmas Morning',
+    line: 'Over the mountains, the first light finds the sky empty, and the sleigh long gone.',
+    pointerInfluence: 0.6,
+    weather: { snow: 0.35, wind: 0.2, fog: 0.00032, aurora: 0.2 },
+  },
+  {
+    id: 'calm',
+    start: 0.3,
+    end: 0.52,
+    kicker: 'All Is Calm',
+    line: 'The work is done. The village sleeps. The Great Clock keeps perfect time.',
+    pointerInfluence: 0.5,
+    weather: { snow: 0.45, wind: 0.12, fog: 0.0003, aurora: 0 },
+  },
+  {
+    // The closing words are set by the ending sequence, not the caption.
+    id: 'ending',
+    start: 0.52,
+    end: 1,
+    line: '',
+    pointerInfluence: 0.35,
+    weather: { snow: 0.5, wind: 0.1, fog: 0.0003, aurora: 0 },
+  },
+]
+
 /** Where the story waits until the visitor winds the Great Clock (clock-local progress). */
 export const CLOCK_GATE_LOCAL = 0.4
 
 /** The journey's chapters on one continuous scroll track. */
 export const CHAPTERS: { id: DestinationId; start: number; end: number; beats: LocalBeat[] }[] = [
-  { id: 'arrival', start: 0, end: 0.25, beats: ARRIVAL },
-  { id: 'express', start: 0.25, end: 0.5, beats: EXPRESS },
-  { id: 'workshop', start: 0.5, end: 0.75, beats: WORKSHOP },
-  { id: 'clock', start: 0.75, end: 1, beats: CLOCK },
+  { id: 'arrival', start: 0, end: 0.15, beats: ARRIVAL },
+  { id: 'express', start: 0.15, end: 0.3, beats: EXPRESS },
+  { id: 'workshop', start: 0.3, end: 0.44, beats: WORKSHOP },
+  { id: 'clock', start: 0.44, end: 0.59, beats: CLOCK },
+  { id: 'stables', start: 0.59, end: 0.73, beats: STABLES },
+  { id: 'flight', start: 0.73, end: 0.89, beats: FLIGHT },
+  { id: 'morning', start: 0.89, end: 1, beats: MORNING },
 ]
 
 export const STORY_BEATS: StoryBeat[] = CHAPTERS.flatMap((ch) =>

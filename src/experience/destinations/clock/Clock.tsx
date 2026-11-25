@@ -8,7 +8,6 @@ import { weather } from '../../systems/weather/weather-controller'
 import { BellShockwave } from './BellShockwave'
 import { CLOCK_TIMING, clockState, gearSpeed, rippleRadius, sinceStrike } from './clock-state'
 import { ClockMechanism } from './ClockMechanism'
-import { StablesTeaser } from './StablesTeaser'
 
 /**
  * Destination 04 — The Great Christmas Clock.
@@ -53,7 +52,6 @@ export function Clock() {
     <group name="GreatChristmasClockDestination">
       <ClockMechanism />
       <BellShockwave />
-      <StablesTeaser />
     </group>
   )
 }

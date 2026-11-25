@@ -59,6 +59,7 @@ export class AudioManager {
   private interior = 0
   private nextClank = 0
   private celebrate = false
+  private flightIntensity = 0
   private nextJingle = 0
   private noiseBuffer: AudioBuffer | null = null
   private onVisibility = () => {
@@ -231,6 +232,201 @@ export class AudioManager {
     const ctx = this.ctx
     if (!ctx) return
     this.sparkle(ctx.currentTime + 0.01, pitch, 0.12, this.buses.sfx)
+  }
+
+  // ───────────────────────── Christmas Morning ─────────────────────────
+
+  /** The greeting: the Great Clock, far off and gentle, and a last shimmer of bells. */
+  morningGreeting() {
+    if (!this.ctx) return
+    const t = this.ctx.currentTime
+    this.playBell(0.85, 45)
+    window.setTimeout(() => this.playBell(0.88, 50), 1400)
+    ;[81, 86, 90, 93].forEach((n, i) => this.sparkle(t + 0.6 + i * 0.3, n, 0.05, this.buses.music))
+    this.jingle(t + 1.5, 1.4, 0.04)
+  }
+
+  // ───────────────────────── Christmas Eve Flight ─────────────────────────
+
+  /** How hard the score drives during the flight (0–1). */
+  setFlightIntensity(v: number) {
+    this.flightIntensity = Math.max(0, Math.min(1, v))
+  }
+
+  /** The reins snap, the bells burst, the team sets off. */
+  flightStart() {
+    const ctx = this.ctx
+    if (!ctx || !this.noiseBuffer) return
+    const t = ctx.currentTime + 0.01
+    const src = ctx.createBufferSource()
+    src.buffer = this.noiseBuffer
+    const hp = ctx.createBiquadFilter()
+    hp.type = 'highpass'
+    hp.frequency.value = 1800
+    const g = ctx.createGain()
+    g.gain.setValueAtTime(0.5, t)
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.07)
+    src.connect(hp)
+    hp.connect(g)
+    g.connect(this.buses.sfx)
+    src.start(t, Math.random())
+    src.stop(t + 0.1)
+    this.jingle(t + 0.05, 2.2, 0.18)
+    for (let i = 0; i < 6; i++) this.timpani(t + 0.2 + i * 0.12, this.currentChord[0] - 12, 0.08 + i * 0.03)
+  }
+
+  /** Lift-off: a rising whoosh and a glissando of light. */
+  flightLiftoff() {
+    const ctx = this.ctx
+    if (!ctx || !this.noiseBuffer) return
+    const t = ctx.currentTime + 0.01
+    const src = ctx.createBufferSource()
+    src.buffer = this.noiseBuffer
+    const bp = ctx.createBiquadFilter()
+    bp.type = 'bandpass'
+    bp.Q.value = 1.5
+    bp.frequency.setValueAtTime(200, t)
+    bp.frequency.exponentialRampToValueAtTime(2400, t + 2.2)
+    const g = ctx.createGain()
+    g.gain.setValueAtTime(0, t)
+    g.gain.linearRampToValueAtTime(0.32, t + 1.2)
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 3)
+    src.connect(bp)
+    bp.connect(g)
+    g.connect(this.buses.sfx)
+    src.start(t)
+    src.stop(t + 3.1)
+    const scale = [62, 64, 66, 69, 71, 74, 76, 78, 81, 83, 86, 88, 90, 93, 95, 98]
+    scale.forEach((n, i) => this.sparkle(t + 0.3 + i * 0.06, n, 0.06, this.buses.music))
+  }
+
+  /** The reveal: a great warm chord. */
+  flightReveal() {
+    const ctx = this.ctx
+    if (!ctx) return
+    const t = ctx.currentTime + 0.02
+    this.padChord(t, [26, 38, 45, 50, 54, 57, 62, 66], 7, 0.09)
+    this.choirChord(t, [62, 66, 69, 74], 6, 0.05)
+  }
+
+  /** Farewell: the Great Clock rings them out over the village. */
+  flightFarewell() {
+    if (!this.ctx) return
+    this.playBell(0.45, 38)
+    window.setTimeout(() => this.playBell(0.5, 38), 1600)
+    this.jingle(this.ctx.currentTime + 0.4, 1.8, 0.12)
+  }
+
+  /** Choir-like vowel pad: sawtooth voices through two formant filters. */
+  private choirChord(t: number, notes: number[], length: number, level: number) {
+    const ctx = this.ctx!
+    const env = ctx.createGain()
+    env.gain.setValueAtTime(0, t)
+    env.gain.linearRampToValueAtTime(level, t + 1.6)
+    env.gain.setValueAtTime(level, t + length - 2)
+    env.gain.linearRampToValueAtTime(0, t + length)
+    const f1 = ctx.createBiquadFilter()
+    f1.type = 'bandpass'
+    f1.frequency.value = 760
+    f1.Q.value = 4
+    const f2 = ctx.createBiquadFilter()
+    f2.type = 'bandpass'
+    f2.frequency.value = 1180
+    f2.Q.value = 5
+    env.connect(f1)
+    env.connect(f2)
+    f1.connect(this.buses.music)
+    f2.connect(this.buses.music)
+    const send = ctx.createGain()
+    send.gain.value = 1.2
+    f1.connect(send)
+    f2.connect(send)
+    send.connect(this.reverbSend)
+    for (const n of notes) {
+      for (const d of [-9, 0, 8]) {
+        const o = ctx.createOscillator()
+        o.type = 'sawtooth'
+        o.frequency.value = hz(n)
+        o.detune.value = d
+        const vib = ctx.createOscillator()
+        vib.frequency.value = 4.8 + Math.random()
+        const vg = ctx.createGain()
+        vg.gain.value = 4
+        vib.connect(vg)
+        vg.connect(o.detune)
+        o.connect(env)
+        o.start(t)
+        vib.start(t)
+        o.stop(t + length + 0.05)
+        vib.stop(t + length + 0.05)
+      }
+    }
+  }
+
+  // ───────────────────────── Reindeer Stables ─────────────────────────
+
+  /** A reindeer's snort: a short, breathy, low burst. */
+  reindeerSnort(proximity: number) {
+    const ctx = this.ctx
+    if (!ctx || !this.noiseBuffer || proximity < 0.05) return
+    const t = ctx.currentTime + 0.01
+    const src = ctx.createBufferSource()
+    src.buffer = this.noiseBuffer
+    const bp = ctx.createBiquadFilter()
+    bp.type = 'bandpass'
+    bp.Q.value = 1.4
+    bp.frequency.setValueAtTime(700, t)
+    bp.frequency.exponentialRampToValueAtTime(260, t + 0.35)
+    const g = ctx.createGain()
+    g.gain.setValueAtTime(0, t)
+    g.gain.linearRampToValueAtTime(0.35 * proximity, t + 0.03)
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.42)
+    src.connect(bp)
+    bp.connect(g)
+    g.connect(this.buses.sfx)
+    src.start(t, Math.random() * 3)
+    src.stop(t + 0.45)
+  }
+
+  /** Harness bells with a single stride. */
+  reindeerJingle(proximity: number) {
+    if (!this.ctx || proximity < 0.05) return
+    this.jingle(this.ctx.currentTime + 0.01, 0.18, 0.05 * proximity)
+  }
+
+  /** The visitor rings the sleigh bells: a full, bright peal. */
+  sleighBells() {
+    if (!this.ctx) return
+    const t = this.ctx.currentTime + 0.01
+    this.jingle(t, 1.4, 0.2)
+    ;[86, 90, 93, 98].forEach((n, i) => this.sparkle(t + 0.15 + i * 0.11, n, 0.05, this.buses.sfx))
+  }
+
+  /** The great doors: a long wooden creak, then the wind outside rushes in. */
+  stableDoors() {
+    const ctx = this.ctx
+    if (!ctx || !this.noiseBuffer) return
+    const t = ctx.currentTime + 0.01
+    const o = ctx.createOscillator()
+    o.type = 'sawtooth'
+    o.frequency.setValueAtTime(52, t)
+    o.frequency.linearRampToValueAtTime(74, t + 1.6)
+    o.frequency.linearRampToValueAtTime(46, t + 2.6)
+    const bp = ctx.createBiquadFilter()
+    bp.type = 'bandpass'
+    bp.frequency.value = 900
+    bp.Q.value = 5
+    const g = ctx.createGain()
+    g.gain.setValueAtTime(0, t)
+    g.gain.linearRampToValueAtTime(0.12, t + 0.3)
+    g.gain.linearRampToValueAtTime(0.06, t + 2.2)
+    g.gain.linearRampToValueAtTime(0, t + 2.8)
+    o.connect(bp)
+    bp.connect(g)
+    g.connect(this.buses.sfx)
+    o.start(t)
+    o.stop(t + 2.9)
+    this.buses.ambience.gain.setTargetAtTime(BUS_LEVELS.ambience * 1.25, t + 1.2, 0.8)
   }
 
   // ───────────────────────── Great Christmas Clock ─────────────────────────
@@ -600,7 +796,9 @@ export class AudioManager {
       const set = magical ? MAGICAL : MYSTERIOUS
       const chord = set[this.chordIndex % set.length]
       const dur = magical ? 7.5 : 9
-      this.padChord(this.nextChordTime, chord, dur + 3.5, magical ? 0.05 : 0.04)
+      const climax = this.chapter === 'flight' ? this.flightIntensity : 0
+      this.padChord(this.nextChordTime, chord, dur + 3.5, (magical ? 0.05 : 0.04) * (1 + climax * 0.7))
+      if (climax > 0.2) this.choirChord(this.nextChordTime, chord.slice(-4), dur + 2, 0.035 * climax)
       this.currentChord = chord
       this.nextChordTime += dur
       this.chordIndex++
@@ -608,13 +806,59 @@ export class AudioManager {
 
     // Celesta-like sparkles, denser as the village comes into view.
     if (this.nextSparkle < lookahead) {
-      const density = 0.12 + Math.max(0, this.progress - 0.35) * 1.4
+      const density = this.chapter === 'morning' ? 0.08 : 0.12 + Math.max(0, this.progress - 0.35) * 1.4
       const note = SPARKLE_SCALE[Math.floor(Math.random() * SPARKLE_SCALE.length)]
       const vel = 0.04 + Math.random() * 0.05 + this.progress * 0.03
       this.sparkle(this.nextSparkle, note, vel, this.buses.music)
       // Occasional answering note a third/fifth up.
       if (Math.random() < 0.3) this.sparkle(this.nextSparkle + 0.18, note + (Math.random() < 0.5 ? 4 : 7), vel * 0.6, this.buses.music)
       this.nextSparkle += (1 / density) * (0.5 + Math.random())
+    }
+
+    // Christmas Morning: an original music-box lullaby, slow and far apart.
+    if (this.chapter === 'morning') {
+      if (this.nextPulse < now - 1) this.nextPulse = now + 0.4
+      const tune = [74, 78, 81, 78, 76, 74, 71, 74, 76, 78, 76, 74, 69, -1, 71, 74]
+      while (this.nextPulse < lookahead) {
+        const n = tune[this.pulseStep % tune.length]
+        if (n > 0) this.sparkle(this.nextPulse, n, 0.045, this.buses.music)
+        if (this.pulseStep % 8 === 0) this.pluck(this.nextPulse, this.currentChord[0] + 12, 0.025)
+        this.nextPulse += 60 / 66
+        this.pulseStep++
+      }
+    }
+
+    // The flight: driving strings and timpani, scaled by the climax curve.
+    if (this.chapter === 'flight') {
+      if (this.nextPulse < now - 1) this.nextPulse = now + 0.1
+      const step = 60 / 132 / 2
+      const pattern = [0, 2, 3, 2, 4, 2, 3, 5]
+      while (this.nextPulse < lookahead) {
+        const k = this.pulseStep % 8
+        const chord = this.currentChord
+        const vol = 0.025 + this.flightIntensity * 0.05
+        this.pluck(this.nextPulse, chord[Math.min(pattern[k] + 1, chord.length - 1)] + 12, vol * (k % 2 === 0 ? 1 : 0.7))
+        if (k === 0 || (k === 4 && this.flightIntensity > 0.5)) this.timpani(this.nextPulse, chord[0] - 12, 0.08 + this.flightIntensity * 0.16)
+        this.nextPulse += step
+        this.pulseStep++
+      }
+      if (this.flightIntensity > 0.4 && this.nextJingle < lookahead) {
+        if (this.nextJingle < now - 1) this.nextJingle = now + 0.5
+        this.jingle(Math.max(now, this.nextJingle), 1.2, 0.05 * this.flightIntensity)
+        this.nextJingle += 2.5 + Math.random() * 2
+      }
+    }
+
+    // Anticipation before departure: soft timpani heartbeats under the strings.
+    if (this.chapter === 'stables') {
+      if (this.nextPulse < now - 1) this.nextPulse = now + 0.1
+      const beat = 60 / 72
+      while (this.nextPulse < lookahead) {
+        const strong = this.pulseStep % 2 === 0
+        this.timpani(this.nextPulse, this.currentChord[0] - 12, strong ? 0.22 : 0.12)
+        this.nextPulse += strong ? beat * 0.42 : beat * 1.58
+        this.pulseStep++
+      }
     }
 
     // Celebration after midnight: sleigh-bell flourishes now and then.
@@ -660,6 +904,26 @@ export class AudioManager {
         this.pulseStep++
       }
     }
+  }
+
+  /** A soft timpani stroke (pitched sine with a falling envelope and a felt thump). */
+  private timpani(t: number, note: number, vel: number) {
+    const ctx = this.ctx!
+    const o = ctx.createOscillator()
+    o.frequency.setValueAtTime(hz(note) * 1.04, t)
+    o.frequency.exponentialRampToValueAtTime(hz(note), t + 0.12)
+    const g = ctx.createGain()
+    g.gain.setValueAtTime(0, t)
+    g.gain.linearRampToValueAtTime(vel, t + 0.01)
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 1.6)
+    o.connect(g)
+    g.connect(this.buses.music)
+    const send = ctx.createGain()
+    send.gain.value = 0.6
+    g.connect(send)
+    send.connect(this.reverbSend)
+    o.start(t)
+    o.stop(t + 1.7)
   }
 
   private pluck(t: number, note: number, vel: number) {

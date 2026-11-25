@@ -25,6 +25,24 @@ export interface StoryEventMap {
   'clock:midnight': Record<string, never>
   /** A strike of the great bell. */
   'clock:strike': { index: number; last: boolean }
+  /** A reindeer snorts (proximity 0–1 to the camera). */
+  'reindeer:snort': { proximity: number }
+  /** Harness bells jingle as a reindeer walks. */
+  'reindeer:jingle': { proximity: number }
+  /** The visitor rang the sleigh bells. */
+  'sleigh:bells': Record<string, never>
+  /** The great stable doors begin to open. */
+  'stables:doors': Record<string, never>
+  /** The reins snap; the team sets off. */
+  'flight:start': Record<string, never>
+  /** The sleigh leaves the ground. */
+  'flight:liftoff': Record<string, never>
+  /** Santa turns to the camera. */
+  'flight:reveal': Record<string, never>
+  /** The last pass over the village. */
+  'flight:farewell': Record<string, never>
+  /** The closing greeting appears. */
+  'morning:greeting': Record<string, never>
 }
 
 type Handler<K extends keyof StoryEventMap> = (payload: StoryEventMap[K]) => void

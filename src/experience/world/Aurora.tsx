@@ -2,6 +2,7 @@ import { useFrame } from '@react-three/fiber'
 import { useMemo } from 'react'
 import { AdditiveBlending, DoubleSide, PlaneGeometry, ShaderMaterial } from 'three'
 import { GLSL_NOISE } from '../shaders/noise.glsl'
+import { timeOfDay } from '../systems/lighting/time-of-day'
 import { weather } from '../systems/weather/weather-controller'
 
 const vertexShader = /* glsl */ `
@@ -113,7 +114,7 @@ function AuroraCurtain({ curtain }: { curtain: Curtain }) {
 
   useFrame(({ clock }) => {
     material.uniforms.uTime.value = clock.elapsedTime
-    material.uniforms.uIntensity.value = (weather.aurora + weather.surge * 0.9) * curtain.strength
+    material.uniforms.uIntensity.value = (weather.aurora + weather.surge * 0.9) * curtain.strength * (1 - timeOfDay.dawn)
   })
 
   return (

@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { useMemo, useRef } from 'react'
 import { Group, MathUtils, Matrix4, PerspectiveCamera as ThreePerspectiveCamera, Quaternion, Vector3 } from 'three'
 import { createShot, directShot } from '../../cinematic/camera-paths/director'
+import { cameraState } from '../../cinematic/camera-state'
 import { journey } from '../../cinematic/journey'
 import { beatIndexAt, STORY_BEATS } from '../../config/destinations'
 import { pointer } from '../../interaction/pointer-controller'
@@ -66,6 +67,7 @@ export function CameraRig() {
       pos.y += Math.sin(t * 0.47) * 0.45 * amp
     }
     ctl.position.copy(pos)
+    cameraState.position.copy(pos)
 
     scratch.m.lookAt(pos, shot.look, scratch.up)
     scratch.q.setFromRotationMatrix(scratch.m)

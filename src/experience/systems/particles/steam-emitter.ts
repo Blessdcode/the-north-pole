@@ -10,6 +10,10 @@ export const PARTICLE = {
   JET: 1,
   /** Powder snow kicked up by the pilot and wheels: falls back to the ground. */
   SNOW: 2,
+  /** Visible breath in the cold air: a small puff that slows and dissolves. */
+  BREATH: 3,
+  /** Golden magic dust trailing the sleigh. */
+  SPARKLE: 4,
 } as const
 
 export type ParticleKind = (typeof PARTICLE)[keyof typeof PARTICLE]

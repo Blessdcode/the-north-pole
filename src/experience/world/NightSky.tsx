@@ -4,6 +4,7 @@ import { BackSide, Mesh, ShaderMaterial } from 'three'
 import { journey } from '../../cinematic/journey'
 import { GLSL_NOISE } from '../shaders/noise.glsl'
 import { weather } from '../systems/weather/weather-controller'
+import { SUN_DIRECTION, timeOfDay } from '../systems/lighting/time-of-day'
 import { MOON_DIRECTION, PALETTE } from './palette'
 
 const vertexShader = /* glsl */ `
@@ -20,6 +21,8 @@ const fragmentShader = /* glsl */ `
 uniform float uTime;
 uniform float uReveal;
 uniform float uAurora;
+uniform float uDawn;
+uniform vec3 uSunDir;
 uniform vec3 uMoonDir;
 uniform vec3 uZenith;
 uniform vec3 uMid;
@@ -79,6 +82,23 @@ void main() {
   col = mix(col, moonCol, disc);
   col += vec3(0.55, 0.65, 0.95) * (pow(max(md, 0.0), 2200.0) * 0.6 + pow(max(md, 0.0), 160.0) * 0.12 + pow(max(md, 0.0), 14.0) * 0.035);
 
+  // Christmas Morning: a golden winter sunrise in the south-east.
+  if (uDawn > 0.001) {
+    float sunAmt = max(dot(dir, uSunDir), 0.0);
+    vec3 dawnZenith = vec3(0.2, 0.34, 0.6);
+    vec3 dawnHorizon = vec3(1.0, 0.7, 0.46);
+    vec3 rose = vec3(0.92, 0.6, 0.62);
+    vec3 dawn = mix(dawnHorizon, dawnZenith, smoothstep(-0.02, 0.5, h));
+    // The rose-tinted band opposite the sun, low in the sky.
+    dawn = mix(dawn, rose, (1.0 - sunAmt) * smoothstep(0.0, 0.12, h) * (1.0 - smoothstep(0.12, 0.38, h)) * 0.55);
+    dawn += vec3(1.0, 0.72, 0.4) * pow(sunAmt, 6.0) * 0.9 + vec3(1.0, 0.86, 0.62) * pow(sunAmt, 64.0) * 2.4;
+    dawn = mix(dawn, vec3(6.0, 5.0, 3.6), smoothstep(0.99935, 0.99962, sunAmt));
+    dawn = mix(dawn, uFog, smoothstep(0.02, -0.08, h));
+    // A pale morning moon lingers.
+    dawn += vec3(0.9, 0.92, 1.0) * disc * 0.35;
+    col = mix(col, dawn, uDawn);
+  }
+
   // Opening: sky emerges from total darkness.
   col *= mix(0.0, 1.0, uReveal);
 
@@ -102,6 +122,8 @@ export function NightSky() {
           uTime: { value: 0 },
           uReveal: { value: 0 },
           uAurora: { value: 0.5 },
+          uDawn: { value: 0 },
+          uSunDir: { value: SUN_DIRECTION },
           uMoonDir: { value: MOON_DIRECTION },
           uZenith: { value: PALETTE.zenith },
           uMid: { value: PALETTE.skyMid },
@@ -116,7 +138,8 @@ export function NightSky() {
     mesh.current?.position.copy(camera.getWorldPosition(mesh.current.position))
     material.uniforms.uTime.value = clock.elapsedTime
     material.uniforms.uReveal.value = journey.reveal
-    material.uniforms.uAurora.value = weather.aurora
+    material.uniforms.uAurora.value = weather.aurora * (1 - timeOfDay.dawn)
+    material.uniforms.uDawn.value = timeOfDay.dawn
   })
 
   return (
